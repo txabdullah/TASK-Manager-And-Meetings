@@ -8,3 +8,4 @@ media/
 staticfiles/
 *.egg-info/
 .eggs/
+.idea/

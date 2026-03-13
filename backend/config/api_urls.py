@@ -1,5 +1,5 @@
-from django.urls import path
+from django.urls import path, include
 
 urlpatterns = [
-    # Will be populated as we add apps
+    path("", include("apps.users.urls")),
 ]
