@@ -4,4 +4,6 @@ urlpatterns = [
     path("", include("apps.users.urls")),
     path("", include("apps.teams.urls")),
     path("", include("apps.meetings.urls")),
+    path("", include("apps.tasks.urls")),
+    path("", include("apps.notifications.urls")),
 ]

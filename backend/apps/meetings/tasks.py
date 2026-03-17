@@ -19,4 +19,11 @@ def process_meeting_notes(meeting_notes_id):
         return {"meeting_notes_id": meeting_notes_id, "tasks_created": 0}
 
     created = create_tasks_from_extraction(notes, extracted)
+    for task in created:
+        for assignment in task.assignments.select_related("assignee"):
+            try:
+                from apps.notifications.services import create_task_assigned_notification
+                create_task_assigned_notification(assignment.assignee, task)
+            except Exception:
+                pass
     return {"meeting_notes_id": meeting_notes_id, "tasks_created": len(created)}
