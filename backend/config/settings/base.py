@@ -118,6 +118,19 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
+CELERY_BEAT_SCHEDULE = {
+    "send-task-reminders": {
+        "task": "apps.tasks.tasks.send_task_reminders",
+        "schedule": 3600.0,
+    },
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Meeting Notes & Task Manager API",
+    "DESCRIPTION": "Backend API for meeting notes, task extraction, and team collaboration.",
+    "VERSION": "1.0.0",
+}
+
 # Media
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
