@@ -1,32 +1,10 @@
-# Deploy pre-built images from GHCR to an EC2 (or any) host over SSH.
-#
-# Triggers:
-#   - workflow_dispatch — run manually (Actions → Deploy to AWS (EC2) → Run workflow)
-#   - workflow_run — after "Publish Docker image" succeeds (optional; remove the workflow_run block below for manual-only)
-#
-# Approval gate:
-#   - Repo → Settings → Environments → create "production" → enable "Required reviewers"
-#   - This job uses environment: production, so deploy waits for approval when that is configured.
-#   - Time spent "Waiting for approval" is not included in the job timer until someone approves.
-#
-# Speed: web/celery/celery-beat use the same image — we `docker pull` once, then `compose up` (not three pulls).
-# Most run time is on the EC2 host: `docker pull` from GHCR (large layers / network). The Drone SSH binary download is only seconds.
-#
-# Secrets (repo → Settings → Secrets and variables → Actions):
-#   AWS_DEPLOY_HOST      — server hostname or IP
-#   AWS_DEPLOY_USER      — SSH user (e.g. ubuntu, ec2-user)
-#   AWS_DEPLOY_SSH_KEY   — private key (full PEM, including BEGIN/END lines)
-#   AWS_DEPLOY_PATH      — absolute path on server where docker-compose.prod.yml, deploy/docker-compose.ghcr.yml, and .env live
-#   GHCR_USERNAME        — GitHub username for docker login
-#   GHCR_READ_TOKEN      — PAT with read:packages (and read repo if package is private)
-
 name: Deploy to AWS (EC2)
 
 on:
   workflow_dispatch:
     inputs:
       note:
-        description: "Optional note (shown in run title only if you set it in UI)"
+        description: "Optional note"
         required: false
         default: ""
 
@@ -48,8 +26,6 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
-      # PEM in Secrets sometimes gets CRLF or mangled newlines; strip \r and use key_path (more reliable than raw `key:`).
-      # protocol: tcp4 avoids broken IPv6 routes (some "handshake failed" cases are IPv6 to EC2).
       - name: Write SSH private key
         run: |
           echo "${{ secrets.AWS_DEPLOY_SSH_KEY }}" | sed 's/\r$//' > "${{ runner.temp }}/ec2_deploy.pem"
@@ -66,15 +42,12 @@ jobs:
           timeout: 180s
           command_timeout: 20m
           script_stop: true
+          debug: false
           script: |
             set -euo pipefail
             cd "${{ secrets.AWS_DEPLOY_PATH }}"
             GHCR_IMAGE="$(echo "ghcr.io/${{ github.repository }}/api:latest" | tr '[:upper:]' '[:lower:]')"
             export GHCR_IMAGE
-            echo "==> GHCR login"
             echo "${{ secrets.GHCR_READ_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
-            echo "==> Pulling image (may take several minutes; layer progress below — not stuck)"
             docker pull "$GHCR_IMAGE"
-            echo "==> docker compose up"
             docker compose -f docker-compose.prod.yml -f deploy/docker-compose.ghcr.yml up -d --no-build
-            echo "==> done"
