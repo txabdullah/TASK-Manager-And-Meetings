@@ -1,0 +1,18 @@
+# Merge with docker-compose.prod.yml on the server so app services pull from GHCR instead of building.
+# Usage:
+#   export GHCR_IMAGE=ghcr.io/<owner>/<repo>/api:latest   # lowercase owner/repo
+#   docker compose -f docker-compose.prod.yml -f deploy/docker-compose.ghcr.yml pull web celery celery-beat
+#   docker compose -f docker-compose.prod.yml -f deploy/docker-compose.ghcr.yml up -d
+#
+# `build: null` removes the Dockerfile build from the merged service (Compose v2 merge).
+
+services:
+  web:
+    image: ${GHCR_IMAGE}
+    build: null
+  celery:
+    image: ${GHCR_IMAGE}
+    build: null
+  celery-beat:
+    image: ${GHCR_IMAGE}
+    build: null

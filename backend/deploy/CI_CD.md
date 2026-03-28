@@ -42,14 +42,48 @@ docker pull ghcr.io/OWNER/REPO/api:latest
 
 Use a Personal Access Token with `read:packages` (or `write:packages` for CI machines that also push).
 
-## Continuous deployment
+## Continuous deployment — AWS EC2 (`.github/workflows/deploy-aws.yml`)
 
-There is no default deploy job: hosting (VPS, Kubernetes, Railway, etc.) differs per project.
+This workflow **SSHs into your server**, logs in to **GHCR**, pulls **`latest`**, and runs **Compose** with a small override so `web` / `celery` / `celery-beat` use the **pre-built image** instead of building on the host.
 
-Typical options:
+### Triggers
 
-1. **SSH**: workflow step that SSHs to the server and runs `docker compose pull && docker compose up -d` (store host, user, and key in GitHub **Secrets**).
-2. **Kubernetes**: `kubectl set image` or Helm upgrade using a cluster secret.
-3. **Platform**: connect the repo to Railway, Render, or Fly.io and point them at `backend/Dockerfile` or the published GHCR image.
+| Trigger | When it runs |
+|--------|----------------|
+| **Manual** | **Actions → Deploy to AWS (EC2) → Run workflow** |
+| **After publish** | When **Publish Docker image** completes **successfully** |
 
-Add a new workflow file under `.github/workflows/` when you choose an approach.
+To use **manual deploy only**, delete the `workflow_run:` block from `deploy-aws.yml` (keep `workflow_dispatch`).
+
+### Approval before deploy
+
+The deploy job uses GitHub **Environment** `production`. Configure **Settings → Environments → production → Required reviewers** so the job **waits for approval** before SSH runs. Without reviewers, the job runs immediately when triggered.
+
+### One-time EC2 setup
+
+1. Install **Docker Engine** and **Docker Compose plugin** (v2; merge override with `build: null` needs a recent Compose).
+2. Copy onto the server (same layout as repo under `backend/`):
+   - `docker-compose.prod.yml`
+   - `deploy/docker-compose.ghcr.yml`
+   - `deploy/.env.prod.example` → `.env` (real secrets, `ALLOWED_HOSTS`, DB passwords, etc.)
+3. Point `AWS_DEPLOY_PATH` at the directory that **contains** `docker-compose.prod.yml` and the `deploy/` folder (e.g. `/opt/ai-task-manager/backend`).
+4. Add the deploy SSH **public key** to `~/.ssh/authorized_keys` on the server; store the **private** key in `AWS_DEPLOY_SSH_KEY`.
+5. Ensure the instance can **pull from GHCR** (`docker login` uses `GHCR_USERNAME` + `GHCR_READ_TOKEN` in the workflow).
+
+### GitHub Actions secrets
+
+| Secret | Purpose |
+|--------|--------|
+| `AWS_DEPLOY_HOST` | Server hostname or IP |
+| `AWS_DEPLOY_USER` | SSH user (e.g. `ubuntu`, `ec2-user`) |
+| `AWS_DEPLOY_SSH_KEY` | Private key PEM |
+| `AWS_DEPLOY_PATH` | Absolute path to the `backend` directory on the server |
+| `GHCR_USERNAME` | GitHub user for `docker login ghcr.io` |
+| `GHCR_READ_TOKEN` | PAT with `read:packages` (and repo scope if the package is private) |
+
+### Other hosting
+
+1. **Kubernetes**: `kubectl set image` or Helm; use kubeconfig in secrets.
+2. **PaaS** (Railway, Render, Fly): connect the repo or GHCR image; set env vars in the dashboard.
+
+Add or adjust workflows under `.github/workflows/` as needed.
