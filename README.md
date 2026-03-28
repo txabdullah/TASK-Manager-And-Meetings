@@ -158,6 +158,19 @@ backend/
 └── requirements/
 ```
 
+## Deployment
+
+Production deployment uses Docker Compose with PostgreSQL, Redis, Gunicorn, WhiteNoise, and Celery. See [backend/deploy/DEPLOYMENT.md](backend/deploy/DEPLOYMENT.md) for build commands, environment variables, and reverse-proxy notes.
+
+## CI/CD
+
+GitHub Actions workflows:
+
+- **CI** – Django check, migrations, tests, Docker image build (on push/PR to `main` or `master`)
+- **Publish Docker image** – build and push to GitHub Container Registry (`ghcr.io`) on pushes to the default branch, version tags `v*`, or manual run
+
+Details: [backend/deploy/CI_CD.md](backend/deploy/CI_CD.md).
+
 ## License
 
 MIT
