@@ -44,12 +44,23 @@ jobs:
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
+      # PEM in Secrets sometimes gets CRLF or mangled newlines; strip \r and use key_path (more reliable than raw `key:`).
+      # protocol: tcp4 avoids broken IPv6 routes (some "handshake failed" cases are IPv6 to EC2).
+      - name: Write SSH private key
+        run: |
+          echo "${{ secrets.AWS_DEPLOY_SSH_KEY }}" | sed 's/\r$//' > "${{ runner.temp }}/ec2_deploy.pem"
+          chmod 600 "${{ runner.temp }}/ec2_deploy.pem"
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.AWS_DEPLOY_HOST }}
           username: ${{ secrets.AWS_DEPLOY_USER }}
-          key: ${{ secrets.AWS_DEPLOY_SSH_KEY }}
+          key_path: ${{ runner.temp }}/ec2_deploy.pem
+          protocol: tcp4
+          port: 22
+          timeout: 180s
+          command_timeout: 30m
           script_stop: true
           script: |
             set -euo pipefail

@@ -81,6 +81,14 @@ The deploy job uses GitHub **Environment** `production`. Configure **Settings �
 | `GHCR_USERNAME` | GitHub user for `docker login ghcr.io` |
 | `GHCR_READ_TOKEN` | PAT with `read:packages` (and repo scope if the package is private) |
 
+### SSH fails: timeout, handshake failed, or publickey
+
+| Symptom | What to check |
+|--------|----------------|
+| **`dial tcp …:22: i/o timeout`** | Security group must allow **SSH (22)** from the internet (GitHub runners use **changing** IPs). **Inbound** rule: port **22**, source **`0.0.0.0/0`** for testing, or add [GitHub Actions IP ranges](https://api.github.com/meta) (`actions`). **`AWS_DEPLOY_HOST`** must be the **public** IPv4 (not `172.31.x.x`). |
+| **`handshake failed`** / **`unable to authenticate … publickey`** | **Private key** in `AWS_DEPLOY_SSH_KEY` must be the **full** PEM (`BEGIN` … `END`), **Unix newlines** (re-paste if edited on Windows). The matching **public** key must be in **`~/.ssh/authorized_keys`** on the server for `AWS_DEPLOY_USER`. Confirm with **`ssh -i key.pem user@host`** from your laptop. |
+| **Still flaky** | The workflow uses **`protocol: tcp4`** (IPv4 only) and writes the key to a file to avoid multiline secret issues. Use an **IPv4** in `AWS_DEPLOY_HOST` if a hostname resolves oddly. |
+
 ### Other hosting
 
 1. **Kubernetes**: `kubectl set image` or Helm; use kubeconfig in secrets.
